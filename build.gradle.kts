@@ -55,7 +55,9 @@ val fixApiSpecFile = tasks.create("fixOpenApiSpec") {
 
 fun fixApiSpecFileTree(tree: JsonElement) {
   if (tree is JsonObject) {
-    var modified = false
+    tree.entrySet().forEach { (_, value) ->
+      fixApiSpecFileTree(value)
+    }
     val allOf = tree.get("allOf")
     if (allOf is JsonArray && !allOf.isEmpty) {
       val element = allOf.get(0)
@@ -64,7 +66,6 @@ fun fixApiSpecFileTree(tree: JsonElement) {
         if (ref != null) {
           tree.remove("allOf")
           tree.add("\$ref", ref)
-          modified = true
         }
       }
     }
@@ -88,11 +89,31 @@ fun fixApiSpecFileTree(tree: JsonElement) {
       }
     }
     tree.remove("enum")
-    if (!modified) {
-      tree.entrySet().forEach { (_, value) ->
-        fixApiSpecFileTree(value)
+
+    // Replace MyCharacterSchema with CharacterSchema, so we can easily reuse the model
+    // MyCharacterSchema only contains the account name in addition to CharacterSchema
+    tree.remove("MyCharacterSchema")
+    val ref = tree.get("\$ref")
+    if (ref is JsonPrimitive) {
+      tree.addProperty("\$ref", ref.asString.replace("MyCharacterSchema", "CharacterSchema"))
+    }
+
+    // remove from required if the entries are nullable
+    val properties = tree.get("properties")
+    if (properties is JsonObject) {
+      val required = tree.get("required")
+      if (required is JsonArray) {
+        for ((key, value) in properties.entrySet()) {
+          if (value is JsonObject) {
+            val nullable = value.get("nullable")
+            if (nullable is JsonPrimitive && nullable.asBoolean) {
+              required.removeAll { it is JsonPrimitive && it.asString == key }
+            }
+          }
+        }
       }
     }
+
     val itr = tree.entrySet().iterator()
     while (itr.hasNext()) {
       val (_, value) = itr.next()
