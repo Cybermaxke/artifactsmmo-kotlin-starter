@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import feign.Target
 import feign.jackson.JacksonDecoder
+import feign.jackson.JacksonEncoder
 import feign.kotlin.CoroutineFeign
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -23,8 +24,12 @@ private fun initFeign(): CoroutineFeign<Unit> {
     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
   return CoroutineFeign.builder<Unit>()
     .decoder(JacksonDecoder(objectMapper))
+    .encoder(JacksonEncoder(objectMapper))
     .requestInterceptor { template ->
       template.header("Authorization", "Bearer $token")
+      if (template.body() != null && template.body().isNotEmpty() && !template.headers().contains("Content-Type")) {
+        template.header("Content-Type", "application/json")
+      }
     }
     .build()
 }
