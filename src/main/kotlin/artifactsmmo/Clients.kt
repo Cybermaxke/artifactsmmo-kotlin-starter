@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import feign.AsyncClient
 import feign.Response
 import feign.RetryableException
+import feign.Retryer
 import feign.Target
 import feign.codec.ErrorDecoder
 import feign.jackson.JacksonDecoder
@@ -16,6 +17,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.reflect.KClass
 
 private object Clients
@@ -34,6 +36,7 @@ private fun initFeign(): CoroutineFeign<Unit> {
   return CoroutineFeign.builder<Unit>()
     .decoder(JacksonDecoder(objectMapper))
     .encoder(JacksonEncoder(objectMapper))
+    .retryer(Retryer.Default(500L, TimeUnit.SECONDS.toMillis(10), 20))
     .requestInterceptor { template ->
       template.header("Authorization", "Bearer $token")
       if (template.body() != null && template.body().isNotEmpty() && !template.headers().contains("Content-Type")) {
